@@ -6,7 +6,7 @@ license:              MIT
 license-file:         LICENSE
 homepage:             https://github.com/TurpIF/Drawhub
 author:               Pierre Turpin
-maintainer:           pierre.turpin54@gmail.com
+maintainer:           pierre(dot)turpin54(at)gmail(dot)com
 bug-reports:          https://github.com/TurpIF/Drawhub/issues
 category:             
 -- copyright:
@@ -18,10 +18,12 @@ executable Drawhub
   main-is:              Main.hs
   -- other-modules:
   -- other-extensions:
-  build-depends:        base >= 4.7 && < 5
+  build-depends:        base >= 4.7 && < 5,
+                        stb-image == 0.2.1,
+                        bitmap == 0.0.2
   hs-source-dirs:       src/main
   default-language:     Haskell2010
-  Ghc-options:          -Wall -fwarn-missing-signatures
+  Ghc-options:          -fwarn-missing-signatures
   if impl(ghc >= 6.8)
     Ghc-options: -fwarn-tabs
 
