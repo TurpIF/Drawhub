@@ -1,4 +1,4 @@
-{-# LANGUAGE Rank2Types #-}
+{-# LANGUAGE Rank2Types           #-}
 
 module Drawhub.Image (
     viewSubImage,
@@ -14,10 +14,10 @@ import Data.Word
 
 import Drawhub.Region
 
-imageRegion :: Pixel p => Image p -> Region
+imageRegion :: Pixel p => Image p -> Region Int
 imageRegion img = Region (Point 0 0) (Point (imageWidth img) (imageHeight img))
 
-viewSubImage :: forall a . (Pixel a) => Region -> Image a -> Either String (Image a)
+viewSubImage :: forall a . (Pixel a) => Region Int -> Image a -> Either String (Image a)
 viewSubImage slice src
     | isInclude (imageRegion src) slice = Right $ generateImage viewPixels (regionWidth slice) (regionHeight slice)
     | otherwise = Left $ "Given region " ++ show slice ++ " is not included in given image of dimension" ++ show (imageRegion src)
@@ -34,17 +34,16 @@ imageMean img = toPixel $ imageSum img
     where
         imgSize = imageWidth img * imageHeight img
         toPixel (r, g, b) = PixelRGB8 (to8 r) (to8 g) (to8 b)
-            where to8 c = (fromIntegral $ ceiling (fromIntegral c / fromIntegral imgSize)) :: Word8
+            where to8 c = fromIntegral $ ceiling (fromIntegral c / fromIntegral imgSize)
 
-downscale :: Size -> Image PixelRGB8 -> Image PixelRGB8
+downscale :: Size Int -> Image PixelRGB8 -> Image PixelRGB8
 downscale (Size w h) src = generateImage f w h
     where
         widthRatio = fromIntegral (imageWidth src) / fromIntegral w
         heightRatio = fromIntegral (imageHeight src) / fromIntegral h
         f x y = let (Right px) = imageMean <$> viewSubImage region src in px
             where
-                x0 = fromIntegral $ floor (fromIntegral x * widthRatio)
-                y0 = fromIntegral $ floor (fromIntegral y * heightRatio)
-                x1 = fromIntegral $ ceiling ((fromIntegral x + 1) * widthRatio)
-                y1 = fromIntegral $ ceiling ((fromIntegral y + 1) * heightRatio)
-                region = Region (Point x0 y0) (Point x1 y1)
+                p = fromIntegral <$> Point x y
+                p0 = floor . (*widthRatio) <$> p
+                p1 = ceiling . (*widthRatio) . (+1) <$> p
+                region = fromIntegral <$> Region p0 p1

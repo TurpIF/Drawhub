@@ -15,41 +15,50 @@ module Drawhub.Region (
     isInclude
 ) where
 
-data Size = Size Int Int deriving Show
+data Size a = Size a a deriving Show
 
-data Point = Point Int Int deriving Show
+data Point a = Point a a deriving Show
 
-data Region = Region Point Point deriving Show
+data Region a = Region (Point a) (Point a) deriving Show
 
-pointX :: Point -> Int
+instance Functor Size where
+    fmap f (Size w h) = Size (f w) (f h)
+
+instance Functor Point where
+    fmap f (Point x y) = Point (f x) (f y)
+
+instance Functor Region where
+    fmap f (Region p0 p1) = Region (fmap f p0) (fmap f p1)
+
+pointX :: Point a -> a
 pointX (Point x _) = x
 
-pointY :: Point -> Int
+pointY :: Point a -> a
 pointY (Point _ y) = y
 
-add :: Point -> Point -> Point
+add :: Num a => Point a -> Point a -> Point a
 (Point x0 y0) `add` (Point x1 y1) = Point (x0 + x1) (y0 + y1)
 
-regionTopLeft :: Region -> Point
+regionTopLeft :: Region a -> Point a
 regionTopLeft (Region p _) = p
 
-regionBottomRight :: Region -> Point
+regionBottomRight :: Region a -> Point a
 regionBottomRight (Region _ p) = p
 
-regionDelta :: (Point -> Int) -> Region -> Int
+regionDelta :: Num b => (Point a -> b) -> Region a -> b
 regionDelta f region = f (regionBottomRight region) - f (regionTopLeft region)
 
-regionWidth :: Region -> Int
+regionWidth :: Num a => Region a -> a
 regionWidth = regionDelta pointX
 
-regionHeight :: Region -> Int
+regionHeight :: Num a => Region a -> a
 regionHeight = regionDelta pointY
 
-regionSize :: Region -> Size
+regionSize :: Num a => Region a -> Size a
 regionSize region = Size (regionWidth region) (regionHeight region)
 
 -- check if second region is totally in first region
-isInclude :: Region -> Region -> Bool
+isInclude :: Ord a => Region a -> Region a -> Bool
 isInclude limit sub
     | pointX (regionTopLeft limit) > pointX (regionTopLeft sub) = False
     | pointY (regionTopLeft limit) > pointY (regionTopLeft sub) = False
