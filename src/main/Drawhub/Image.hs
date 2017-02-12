@@ -14,6 +14,20 @@ import Data.Word
 
 import Drawhub.Region
 
+data Color3 a = Color3 a a a deriving Show
+
+instance Functor Color3 where
+    fmap f (Color3 a b c) = Color3 (f a) (f b) (f c)
+
+colorFromRGB :: PixelRGB8 -> Color3 Pixel8
+colorFromRGB (PixelRGB8 r g b) = Color3 r g b
+
+colorToRGB :: Color3 Pixel8 -> PixelRGB8
+colorToRGB (Color3 a b c) = PixelRGB8 a b c
+
+colorAdd :: Num a => Color3 a -> Color3 a -> Color3 a
+colorAdd (Color3 a b c) (Color3 a' b' c') = Color3 (a + a') (b + b') (c + c')
+
 imageRegion :: Pixel p => Image p -> Region Int
 imageRegion img = Region (Point 0 0) (Point (imageWidth img) (imageHeight img))
 
@@ -25,23 +39,24 @@ viewSubImage slice src
         viewPixels x y = pixelAt src (pointX vp) (pointY vp)
             where vp = regionTopLeft slice `add` Point x y
 
-imageSum :: Image PixelRGB8 -> (Int, Int, Int)
-imageSum = pixelFold acc (0, 0, 0)
-    where acc (ar, ag, ab) _ _ (PixelRGB8 r g b) = (ar + fromIntegral r, ag + fromIntegral g, ab + fromIntegral b)
+imageSum :: Num a => Image PixelRGB8 -> Color3 a
+imageSum = pixelFold acc $ Color3 0 0 0
+    where acc col _ _ px = colorAdd col $ fromIntegral <$> colorFromRGB px
 
 imageMean :: Image PixelRGB8 -> PixelRGB8
 imageMean img = toPixel $ imageSum img
     where
         imgSize = imageWidth img * imageHeight img
-        toPixel (r, g, b) = PixelRGB8 (to8 r) (to8 g) (to8 b)
-            where to8 c = fromIntegral $ ceiling (fromIntegral c / fromIntegral imgSize)
+        toPixel rgb = colorToRGB $ to8 <$> rgb
+            where
+                to8 = fromIntegral . ceiling . (/ fromIntegral imgSize) . fromIntegral
 
 downscale :: Size Int -> Image PixelRGB8 -> Image PixelRGB8
-downscale (Size w h) src = generateImage f w h
+downscale (Size w h) src = generateImage generatePixel w h
     where
         widthRatio = fromIntegral (imageWidth src) / fromIntegral w
         heightRatio = fromIntegral (imageHeight src) / fromIntegral h
-        f x y = let (Right px) = imageMean <$> viewSubImage region src in px
+        generatePixel x y = let (Right px) = imageMean <$> viewSubImage region src in px
             where
                 p = fromIntegral <$> Point x y
                 p0 = floor . (*widthRatio) <$> p
