@@ -3,6 +3,7 @@ module Main where
 import Codec.Picture
 
 import Drawhub.Image
+import Drawhub.KMeans
 import Drawhub.Region
 
 import System.Environment
@@ -20,7 +21,7 @@ main = do
     image <- fmap convertRGB8 $ readImage inputPath >>= handleError
     print (imageWidth image, imageHeight image)
     let region = Region (Point 0 0) (Point (imageWidth image `div` 2) (imageHeight image `div` 2))
-    let subImage = downscale (Size 7 7) image
+    let subImage = downscale (Size 70 70) image
     let dynImage = ImageRGB8 subImage
     savePngImage outputPath dynImage
     print "Finished"

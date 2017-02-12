@@ -1,4 +1,16 @@
-module Drawhub.KMeans where
+module Drawhub.KMeans (
+    Distance,
+    distL1,
+    distL2,
+    distLInf,
+
+    FeatureSelection,
+
+    Cluster,
+    clusterElems,
+
+    kmeans
+) where
 
 import Data.List
 import Data.Ord
@@ -53,16 +65,16 @@ converge p (x:ys@(y:_))
     | otherwise = converge p ys
 
 -- L1 norm (manhattan)
-l1dist :: Num a => Distance a a
-l1dist a b = V.sum $ V.zipWith unit a b
+distL1 :: Num a => Distance a a
+distL1 a b = V.sum $ V.zipWith unit a b
     where unit x y = abs (x - y)
 
 -- L2 norm (euclidean)
-l2dist :: (Real a, Floating b) => Distance a b
-l2dist a b = sqrt . realToFrac . V.sum $ V.zipWith unit a b
+distL2 :: (Real a, Floating b) => Distance a b
+distL2 a b = sqrt . realToFrac . V.sum $ V.zipWith unit a b
     where unit x y = (x - y) * (x - y)
 
 -- Linf norm (Chebyshev)
-ludist :: (Ord a, Num a) => Distance a a
-ludist a b = V.maximum $ V.zipWith unit a b
+distLInf :: (Ord a, Num a) => Distance a a
+distLInf a b = V.maximum $ V.zipWith unit a b
     where unit x y = abs (x - y)
