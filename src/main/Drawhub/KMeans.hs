@@ -7,7 +7,6 @@ module Drawhub.KMeans (
     FeatureSelection,
 
     Cluster,
-    clusterElems,
 
     kmeans
 ) where
@@ -28,22 +27,22 @@ type Centroid b = Vector b
 newtype Cluster a = Cluster [a]
 
 instance Functor Cluster where
-    fmap f cluster = Cluster (f <$> clusterElems cluster)
+    fmap f (Cluster e) = Cluster (fmap f e)
 
 instance Eq a => Eq (Cluster a) where
     (==) (Cluster l) (Cluster r) = l == r
 
 makeCluster :: [a] -> Cluster a
-makeCluster xs = Cluster xs
+makeCluster = Cluster
 
-clusterCentroid :: Fractional b => FeatureSelection a b -> Cluster a -> Maybe Centroid b
+clusterCentroid :: Fractional b => FeatureSelection a b -> Cluster a -> Maybe (Centroid b)
 clusterCentroid _ (Cluster []) = Nothing
 clusterCentroid selection (Cluster xs) = Just $ V.map (/ fromIntegral (length features)) sum
     where
         sum = foldr1 (V.zipWith (+)) features
         features = selection <$> xs
 
-nearest :: (Foldable t, Ord b) => (a -> a -> b) -> a -> f a -> Maybe a
+nearest :: (Foldable f, Ord b) => (a -> a -> b) -> a -> f a -> Maybe a
 nearest distance from ts
   | null ts = Nothing
   | otherwise = Just $ minimumBy order ts
@@ -63,7 +62,7 @@ chunksOf n xs = chunksOf' size xs
         chunksOf' n xs = take n xs : chunksOf' n (drop n xs)
 
 kmeans :: (Eq a, Eq b, Fractional b, Real c) => Distance b c -> FeatureSelection a b -> [a] -> Int -> Maybe [Cluster a]
-kmeans distance selection features nbCentroids = converge (==) $ iterateM step init
+kmeans distance selection features nbCentroids = converge (==) $ iterate step init
     where
         init = Cluster <$> chunksOf nbCentroids features
         step clusters = assignCentroid distance selection features <$> catMaybes $ clusterCentroid selection <$> clusters
