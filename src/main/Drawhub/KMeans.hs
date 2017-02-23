@@ -32,6 +32,9 @@ instance Functor Cluster where
 instance Eq a => Eq (Cluster a) where
     (==) (Cluster l) (Cluster r) = l == r
 
+instance Show a => Show (Cluster a) where
+    show (Cluster e) = "Cluster: " ++ show e
+
 makeCluster :: [a] -> Cluster a
 makeCluster = Cluster
 
@@ -59,10 +62,11 @@ chunksOf :: Int -> [a] -> [[a]]
 chunksOf n xs = chunksOf' size xs
     where
         size = floor $ fromIntegral (length xs) / fromIntegral n
+        chunksOf' _ [] = []
         chunksOf' n xs = take n xs : chunksOf' n (drop n xs)
 
-kmeans :: (Eq a, Eq b, Fractional b, Real c) => Distance b c -> FeatureSelection a b -> [a] -> Int -> Maybe [Cluster a]
-kmeans distance selection features nbCentroids = converge (==) $ iterate step init
+kmeans :: (Eq a, Eq b, Fractional b, Real c) => Distance b c -> FeatureSelection a b -> Int -> [a] -> Maybe [Cluster a]
+kmeans distance selection nbCentroids features = converge (==) $ iterate step init
     where
         init = Cluster <$> chunksOf nbCentroids features
         step clusters = assignCentroid distance selection features <$> catMaybes $ clusterCentroid selection <$> clusters
