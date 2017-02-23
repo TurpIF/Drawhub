@@ -13,6 +13,8 @@ module Drawhub.KMeans (
 ) where
 
 import Data.List
+import Data.Foldable
+import Data.Maybe
 import Data.Ord
 import Data.Vector (Vector)
 import qualified Data.Vector as V
@@ -31,21 +33,28 @@ instance Functor Cluster where
 instance Eq a => Eq (Cluster a) where
     (==) (Cluster l) (Cluster r) = l == r
 
-clusterElems :: Cluster a -> [a]
-clusterElems (Cluster elems) = elems
+makeCluster :: [a] -> Cluster a
+makeCluster xs = Cluster xs
 
-clusterCentroid :: Fractional b => FeatureSelection a b -> Cluster a -> Centroid b
-clusterCentroid selection cluster = V.map (/ fromIntegral (length features)) sum
+clusterCentroid :: Fractional b => FeatureSelection a b -> Cluster a -> Maybe Centroid b
+clusterCentroid _ (Cluster []) = Nothing
+clusterCentroid selection (Cluster xs) = Just $ V.map (/ fromIntegral (length features)) sum
     where
         sum = foldr1 (V.zipWith (+)) features
-        features = selection <$> clusterElems cluster
+        features = selection <$> xs
+
+nearest :: (Foldable t, Ord b) => (a -> a -> b) -> a -> f a -> Maybe a
+nearest distance from ts
+  | null ts = Nothing
+  | otherwise = Just $ minimumBy order ts
+    where order = comparing (distance from)
 
 assignCentroid :: (Eq b, Real c) => Distance b c -> FeatureSelection a b -> [a] -> [Centroid b] -> [Cluster a]
-assignCentroid distance selection features centroids = Cluster . centroidNearest <$> centroids
+assignCentroid distance selection features centroids = Cluster . centroidNearests <$> centroids
     where
-        centroidNearest centroid = filter (isNearest centroid) features
-        isNearest centroid feature = selectNearest feature == centroid
-        selectNearest feature = minimumBy (comparing (distance (selection feature))) centroids
+        centroidNearests centroid = filter (isNearest centroid) features
+        isNearest centroid feature = centroidNearest feature == Just centroid
+        centroidNearest feature = nearest distance (selection feature) centroids
 
 chunksOf :: Int -> [a] -> [[a]]
 chunksOf n xs = chunksOf' size xs
@@ -53,15 +62,19 @@ chunksOf n xs = chunksOf' size xs
         size = floor $ fromIntegral (length xs) / fromIntegral n
         chunksOf' n xs = take n xs : chunksOf' n (drop n xs)
 
-kmeans :: (Eq a, Eq b, Fractional b, Real c) => Distance b c -> FeatureSelection a b -> [a] -> Int -> [Cluster a]
-kmeans distance selection features nbCentroids = converge (==) $ iterate step init
+kmeans :: (Eq a, Eq b, Fractional b, Real c) => Distance b c -> FeatureSelection a b -> [a] -> Int -> Maybe [Cluster a]
+kmeans distance selection features nbCentroids = converge (==) $ iterateM step init
     where
         init = Cluster <$> chunksOf nbCentroids features
-        step clusters = assignCentroid distance selection features $ clusterCentroid selection <$> clusters
+        step clusters = assignCentroid distance selection features <$> catMaybes $ clusterCentroid selection <$> clusters
 
-converge :: (a -> a -> Bool) -> [a] -> a
+iterateM :: Monad m => (a -> m a) -> m a -> [m a]
+iterateM f u = u : iterateM f (u >>= f)
+
+converge :: (a -> a -> Bool) -> [a] -> Maybe a
+converge _ [] = Nothing
 converge p (x:ys@(y:_))
-    | p x y = y
+    | p x y = Just y
     | otherwise = converge p ys
 
 -- L1 norm (manhattan)
