@@ -8,7 +8,9 @@ module Drawhub.KMeans (
 
     Cluster,
 
-    kmeans
+    kmeans,
+    makeCluster,
+    clusterElems
 ) where
 
 import Data.List
@@ -37,6 +39,9 @@ instance Show a => Show (Cluster a) where
 
 makeCluster :: [a] -> Cluster a
 makeCluster = Cluster
+
+clusterElems :: Cluster a -> [a]
+clusterElems (Cluster xs) = xs
 
 clusterCentroid :: Fractional b => FeatureSelection a b -> Cluster a -> Maybe (Centroid b)
 clusterCentroid _ (Cluster []) = Nothing

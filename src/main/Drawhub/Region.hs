@@ -27,6 +27,9 @@ instance Functor Size where
 instance Functor Point where
     fmap f (Point x y) = Point (f x) (f y)
 
+instance Eq a => Eq (Point a) where
+    (==) (Point x0 y0) (Point x1 y1) = x0 == x1 && y0 == y1
+
 instance Functor Region where
     fmap f (Region p0 p1) = Region (fmap f p0) (fmap f p1)
 

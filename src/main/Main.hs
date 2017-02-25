@@ -3,6 +3,7 @@ module Main where
 import Codec.Picture
 import Codec.Picture.Types
 
+import Data.Maybe
 import qualified Data.Vector as V
 
 import Drawhub.Image
@@ -23,6 +24,10 @@ handleMaybe Nothing = putStrLn "Error: Nothing" >> exitFailure
 vectorFromRGB :: PixelRGB8 -> V.Vector Double
 vectorFromRGB (PixelRGB8 r g b) = V.fromList $ fromIntegral <$> [r, g, b]
 
+clustering :: Int -> Image PixelRGB8 -> [Point Int] -> [[Point Int]]
+clustering nbClusters img points = clusterElems <$> fromMaybe [] (kmeans' points)
+    where kmeans' = kmeans distL2 (\(Point x y) -> vectorFromRGB $ pixelAt img x y) nbClusters
+
 main :: IO ()
 main = do
     args <- getArgs
@@ -31,10 +36,9 @@ main = do
     image <- fmap convertRGB8 $ readImage inputPath >>= handleError
     print (imageWidth image, imageHeight image)
     let region = Region (Point 0 0) (Point (imageWidth image `div` 2) (imageHeight image `div` 2))
-    let subImage = downscale (Size 70 70) image
-    let dynImage = ImageRGB8 subImage
+    let subImage = downscale (Size 100 100) image
     let positions = [(i, j) | i <- [0..(imageWidth subImage - 1)], j <- [0..(imageHeight subImage - 1)]]
-    clusters <- handleMaybe $ kmeans distL2 (\(x, y) -> vectorFromRGB $ pixelAt subImage x y) 5 positions
-    sequence_ $ print <$> clusters
+    let quantImage = quantization (clustering 8 subImage) subImage
+    let dynImage = ImageRGB8 quantImage
     savePngImage outputPath dynImage
     print "Finished"
