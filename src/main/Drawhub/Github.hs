@@ -73,7 +73,7 @@ githubResize img = if imageWidth resized > githubMaxWidth
 githubShade :: Image PixelRGB8 -> Image PixelRGB8
 githubShade img = pixelMap getShade quantizedImage where
     quantizedImage = quantization (clustering githubNbShades img) img
-    orderedShades = sort . nubOrd $ rgbSaturation <$> traversePixels quantizedImage
+    orderedShades = sortBy (flip compare) . nubOrd $ rgbSaturation <$> traversePixels quantizedImage
     getShade px = activityRgb . activityOf . fromJust $ elemIndex (rgbSaturation px) orderedShades where
         activityOf 0 = A0
         activityOf 1 = A1
