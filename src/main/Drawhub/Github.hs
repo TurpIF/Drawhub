@@ -10,8 +10,10 @@ import Codec.Picture.Types
 
 import Control.Monad
 
+import Data.Foldable
+import Data.List
 import Data.Maybe
-
+import qualified Data.Set as Set
 import qualified Data.Vector as V
 
 import Drawhub.Image
@@ -50,31 +52,45 @@ rgbToActivity rgb
 vectorFromRGB :: PixelRGB8 -> V.Vector Double
 vectorFromRGB (PixelRGB8 r g b) = V.fromList $ fromIntegral <$> [r, g, b]
 
+rgbSaturation :: PixelRGB8 -> Double
+rgbSaturation (PixelRGB8 r g b) = if max == 0 then 0 else min / max where
+    min = fromIntegral $ minimum [r, g, b]
+    max = fromIntegral $ maximum [r, g, b]
+
 clustering :: Int -> Image PixelRGB8 -> [Point Int] -> [[Point Int]]
-clustering nbClusters img points = clusterElems <$> fromMaybe [] (kmeans' points)
-    where kmeans' = kmeans distL2 (\(Point x y) -> vectorFromRGB $ pixelAt img x y) nbClusters
+clustering nbClusters img points = clusterElems <$> fromMaybe [] (kmeans' points) where
+    kmeans' = kmeans distL2 (\(Point x y) -> vectorFromRGB $ pixelAt img x y) nbClusters
 
 -- TODO only one resize
 githubResize :: Image PixelRGB8 -> Image PixelRGB8
 githubResize img = if imageWidth resized > githubMaxWidth
     then downscaling (scaleFixedWidth githubMaxWidth) resized
-    else resized
-    where
+    else resized where
     downscaling f img = downscale (f $ imageSize img) img
     resized = downscaling (scaleFixedHeight githubMaxHeight) img
 
 -- 5 shades of greens
--- TODO Colorized resulting image with github shades to preview the result
 githubShade :: Image PixelRGB8 -> Image PixelRGB8
-githubShade img = quantization (clustering githubNbShades img) img
+githubShade img = pixelMap getShade quantizedImage where
+    quantizedImage = quantization (clustering githubNbShades img) img
+    orderedShades = sort . nubOrd $ rgbSaturation <$> traversePixels quantizedImage
+    getShade px = activityRgb . activityOf . fromJust $ elemIndex (rgbSaturation px) orderedShades where
+        activityOf 0 = A0
+        activityOf 1 = A1
+        activityOf 2 = A2
+        activityOf 3 = A3
+        activityOf 4 = A4
+        activityOf _ = error "no more activities"
 
 fitImage :: Image PixelRGB8 -> GithubImage
 fitImage img = GithubImage $ (githubShade . githubResize) img
 
 imageToCalendar :: GithubImage -> Calendar
-imageToCalendar img = fromJust $ Calendar <$> sequence [rgbToActivity (pixelAt imgRgb x y) |
-    y <- [0..imageHeight imgRgb - 1],
-    x <- [0..imageWidth imgRgb - 1]]
-    where imgRgb = getRgbImage img
+imageToCalendar img = Calendar $ fromJust . rgbToActivity <$> traversePixels (getRgbImage img)
 
-
+nubOrd :: Ord a => [a] -> [a]
+nubOrd = go Set.empty where
+    go _ [] = []
+    go s (x:xs)
+        | x `Set.member` s = go s xs
+        | otherwise = x : go (Set.insert x s) xs
