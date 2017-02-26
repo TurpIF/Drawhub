@@ -54,9 +54,14 @@ clustering :: Int -> Image PixelRGB8 -> [Point Int] -> [[Point Int]]
 clustering nbClusters img points = clusterElems <$> fromMaybe [] (kmeans' points)
     where kmeans' = kmeans distL2 (\(Point x y) -> vectorFromRGB $ pixelAt img x y) nbClusters
 
--- TODO if resized width > max width then resize
+-- TODO only one resize
 githubResize :: Image PixelRGB8 -> Image PixelRGB8
-githubResize img = downscale (scaleFixedHeight githubMaxHeight $ imageSize img) img
+githubResize img = if imageWidth resized > githubMaxWidth
+    then downscaling (scaleFixedWidth githubMaxWidth) resized
+    else resized
+    where
+    downscaling f img = downscale (f $ imageSize img) img
+    resized = downscaling (scaleFixedHeight githubMaxHeight) img
 
 -- 5 shades of greens
 -- TODO Colorized resulting image with github shades to preview the result
