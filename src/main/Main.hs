@@ -13,6 +13,10 @@ import Drawhub.Region
 import System.Environment
 import System.Exit
 
+readArgs :: [String] -> Maybe (FilePath, FilePath)
+readArgs (x:y:_) = Just (x, y)
+readArgs _ = Nothing
+
 handleError :: Either String a -> IO a
 handleError (Left msg) = putStrLn ("Error: " ++ msg) >> exitFailure
 handleError (Right a) = return a
@@ -31,14 +35,8 @@ clustering nbClusters img points = clusterElems <$> fromMaybe [] (kmeans' points
 main :: IO ()
 main = do
     args <- getArgs
-    let inputPath = head args
-    let outputPath = head $ tail args
-    image <- fmap convertRGB8 $ readImage inputPath >>= handleError
-    print (imageWidth image, imageHeight image)
-    let region = Region (Point 0 0) (Point (imageWidth image `div` 2) (imageHeight image `div` 2))
-    let subImage = downscale (Size 100 100) image
-    let positions = [(i, j) | i <- [0..(imageWidth subImage - 1)], j <- [0..(imageHeight subImage - 1)]]
-    let quantImage = quantization (clustering 8 subImage) subImage
-    let dynImage = ImageRGB8 quantImage
-    savePngImage outputPath dynImage
-    print "Finished"
+    (inputPath, outputPath) <- handleMaybe $ readArgs args
+    image <- convertRGB8 <$> (readImage inputPath >>= handleError)
+    let subImage = downscale (Size 50 50) image
+    let quantImage = quantization (clustering 5 subImage) subImage
+    savePngImage outputPath (ImageRGB8 quantImage)
