@@ -93,7 +93,7 @@ distL1 a b = V.sum $ V.zipWith unit a b
 -- L2 norm (euclidean)
 distL2 :: (Real a, Floating b) => Distance a b
 distL2 a b = sqrt . realToFrac . V.sum $ V.zipWith unit a b
-    where unit x y = (x - y) * (x - y)
+    where unit x y = (x - y) ^ 2
 
 -- Linf norm (Chebyshev)
 distLInf :: (Ord a, Num a) => Distance a a
