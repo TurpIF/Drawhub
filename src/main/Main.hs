@@ -2,7 +2,7 @@ module Main where
 
 import Codec.Picture
 
-import Drawhub.Github
+import qualified Drawhub.Github as G
 
 import System.Environment
 import System.Exit
@@ -24,4 +24,4 @@ main = do
     args <- getArgs
     (inputPath, outputPath) <- handleMaybe $ readArgs args
     image <- convertRGB8 <$> (readImage inputPath >>= handleError)
-    savePngImage outputPath (ImageRGB8 $ githubFitImage image)
+    savePngImage outputPath (ImageRGB8 . G.getRgbImage $ G.fitImage image)
