@@ -1,6 +1,7 @@
 {-# LANGUAGE Rank2Types           #-}
 
 module Drawhub.Image (
+    imageSize,
     viewSubImage,
     downscale,
     quantization
@@ -45,6 +46,9 @@ viewSubImage slice src
     where
     viewPixels x y = pixelAt src (pointX vp) (pointY vp)
         where vp = regionTopLeft slice `add` Point x y
+
+imageSize :: Image a -> Size Int
+imageSize img = Size (imageWidth img) (imageHeight img)
 
 imageSum :: Num a => Image PixelRGB8 -> Color3 a
 imageSum = pixelFold acc $ Color3 0 0 0

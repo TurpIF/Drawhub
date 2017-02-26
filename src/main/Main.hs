@@ -32,11 +32,17 @@ clustering :: Int -> Image PixelRGB8 -> [Point Int] -> [[Point Int]]
 clustering nbClusters img points = clusterElems <$> fromMaybe [] (kmeans' points)
     where kmeans' = kmeans distL2 (\(Point x y) -> vectorFromRGB $ pixelAt img x y) nbClusters
 
+githubResize :: Image PixelRGB8 -> Image PixelRGB8
+githubResize img = downscale (scaleFixedHeight 7 $ imageSize img) img
+
+-- 5 shade of greens
+githubShade :: Image PixelRGB8 -> Image PixelRGB8
+githubShade img = quantization (clustering 5 img) img
+
 main :: IO ()
 main = do
     args <- getArgs
     (inputPath, outputPath) <- handleMaybe $ readArgs args
     image <- convertRGB8 <$> (readImage inputPath >>= handleError)
-    let subImage = downscale (Size 50 50) image
-    let quantImage = quantization (clustering 5 subImage) subImage
-    savePngImage outputPath (ImageRGB8 quantImage)
+    let gitImage = githubShade . githubResize $ image
+    savePngImage outputPath (ImageRGB8 gitImage)

@@ -1,5 +1,7 @@
 module Drawhub.Region (
     Size ( .. ),
+    scaleFixedWidth,
+    scaleFixedHeight,
 
     Point ( .. ),
     pointX,
@@ -45,6 +47,14 @@ pointBimap fx fy (Point x y) = Point (fx x) (fy y)
 
 add :: Num a => Point a -> Point a -> Point a
 (Point x0 y0) `add` (Point x1 y1) = Point (x0 + x1) (y0 + y1)
+
+scaleFixedWidth :: Integral a => a -> Size a -> Size a
+scaleFixedWidth width (Size w h) = Size width (ceiling $ fromIntegral h * ratio)
+    where ratio = fromIntegral width / fromIntegral w
+
+scaleFixedHeight :: Integral a => a -> Size a -> Size a
+scaleFixedHeight height (Size w h) = Size (ceiling $ fromIntegral w * ratio) height
+    where ratio = fromIntegral height / fromIntegral h
 
 regionTopLeft :: Region a -> Point a
 regionTopLeft (Region p _) = p
