@@ -43,8 +43,8 @@ viewSubImage slice src
     | isInclude (imageRegion src) slice = Right $ generateImage viewPixels (regionWidth slice) (regionHeight slice)
     | otherwise = Left $ "Given region " ++ show slice ++ " is not included in given image of dimension" ++ show (imageRegion src)
     where
-        viewPixels x y = pixelAt src (pointX vp) (pointY vp)
-            where vp = regionTopLeft slice `add` Point x y
+    viewPixels x y = pixelAt src (pointX vp) (pointY vp)
+        where vp = regionTopLeft slice `add` Point x y
 
 imageSum :: Num a => Image PixelRGB8 -> Color3 a
 imageSum = pixelFold acc $ Color3 0 0 0
@@ -53,20 +53,25 @@ imageSum = pixelFold acc $ Color3 0 0 0
 imageMean :: Image PixelRGB8 -> PixelRGB8
 imageMean img = toPixel $ imageSum img
     where
-        imgSize = imageWidth img * imageHeight img
-        toPixel rgb = colorToRGB $ ceiling . (/ fromIntegral imgSize) <$> rgb
+    imgSize = imageWidth img * imageHeight img
+    toPixel rgb = colorToRGB $ ceiling . (/ fromIntegral imgSize) <$> rgb
 
 downscale :: Size Int -> Image PixelRGB8 -> Image PixelRGB8
 downscale (Size w h) src = generateImage generatePixel w h
     where
-        widthRatio = fromIntegral (imageWidth src) / fromIntegral w
-        heightRatio = fromIntegral (imageHeight src) / fromIntegral h
-        generatePixel x y = let (Right px) = imageMean <$> viewSubImage region src in px
+    generatePixel x y = assertRight $ imageMean <$> viewSubImage region src
+        where
+        region = fromIntegral <$> Region p0 p1
             where
-                p = fromIntegral <$> Point x y
-                p0 = floor . (*widthRatio) <$> p
-                p1 = ceiling . (*widthRatio) . (+1) <$> p
-                region = fromIntegral <$> Region p0 p1
+            mapRatio = pointBimap (*widthRatio) (*heightRatio)
+                where
+                widthRatio = fromIntegral (imageWidth src) / fromIntegral w
+                heightRatio = fromIntegral (imageHeight src) / fromIntegral h
+            p = fromIntegral <$> Point x y
+            p0 = floor <$> mapRatio p
+            p1 = ceiling <$> mapRatio ((+1) <$> p)
+        assertRight (Right x) = x
+        assertRight (Left x) = error ("Error: " ++ show x)
 
 type Clustering a = [a] -> [[a]]
 
@@ -79,9 +84,9 @@ findIn n (x:xs)
 quantization :: Clustering (Point Int) -> Image PixelRGB8 -> Image PixelRGB8
 quantization clustering img = generateImage generatePixel w h
     where
-        w = imageWidth img
-        h = imageHeight img
-        positions = [Point i j | i <- [0..(w - 1)], j <- [0..(h - 1)]]
-        clusters = clustering positions
-        generatePixel x y = colorToRGB $ ceiling <$> (colorMean $ colorFromRGB . (\(Point x y) -> pixelAt img x y) <$> cluster)
-            where cluster = fromMaybe [] $ findIn (Point x y) clusters
+    w = imageWidth img
+    h = imageHeight img
+    positions = [Point i j | i <- [0..(w - 1)], j <- [0..(h - 1)]]
+    clusters = clustering positions
+    generatePixel x y = colorToRGB $ ceiling <$> (colorMean $ colorFromRGB . (\(Point x y) -> pixelAt img x y) <$> cluster)
+        where cluster = fromMaybe [] $ findIn (Point x y) clusters

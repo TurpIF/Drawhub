@@ -4,6 +4,7 @@ module Drawhub.Region (
     Point ( .. ),
     pointX,
     pointY,
+    pointBimap,
     add,
 
     Region ( .. ),
@@ -38,6 +39,9 @@ pointX (Point x _) = x
 
 pointY :: Point a -> a
 pointY (Point _ y) = y
+
+pointBimap :: (a -> b) -> (a -> b) -> Point a -> Point b
+pointBimap fx fy (Point x y) = Point (fx x) (fy y)
 
 add :: Num a => Point a -> Point a -> Point a
 (Point x0 y0) `add` (Point x1 y1) = Point (x0 + x1) (y0 + y1)
