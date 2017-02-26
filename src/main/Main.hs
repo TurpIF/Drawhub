@@ -2,7 +2,15 @@ module Main where
 
 import Codec.Picture
 
+import Data.ByteString (ByteString)
+import Data.Maybe
+import Data.Text.Encoding (encodeUtf8)
+import qualified Data.Text as T
+import Data.Time
+
 import qualified Drawhub.Github as G
+
+import Git
 
 import System.Environment
 import System.Exit
@@ -19,9 +27,51 @@ handleMaybe :: Maybe a -> IO a
 handleMaybe (Just x) = return x
 handleMaybe Nothing = putStrLn "Error: Nothing" >> exitFailure
 
+openDummyRepo :: IO a
+openDummyRepo = let repoOpts = RepositoryOptions {
+    repoPath = "/d/tmp/tmp",
+    repoWorkingDir = Nothing,
+    repoIsBare = True,
+    repoAutoCreate = False
+    } in openRepository repoOpts
+
 main :: IO ()
 main = do
     args <- getArgs
     (inputPath, outputPath) <- handleMaybe $ readArgs args
     image <- convertRGB8 <$> (readImage inputPath >>= handleError)
     savePngImage outputPath (ImageRGB8 . G.getRgbImage $ G.fitImage image)
+
+    utc <- getCurrentTime
+    tz <- getCurrentTimeZone
+    let now = utcToZonedTime tz utc
+
+    repo <- openDummyRepo
+
+    runRepository repo $ do
+        let buffer = BlobString . encodeUtf8 . T.pack $ "test"
+
+        blobID <- createBlob buffer
+        putEntry (encodeUtf8 . T.pack $ "useless") BlobEntry {
+            blobEntryOid = blobID,
+            blobEntryKind = PlainBlob
+        }
+        tree <- currentTreeOid
+
+        let sig = Signature {
+                signatureName = T.pack "Nobody",
+                signatureEmail = T.pack "nobody@example.com",
+                signatureWhen = now
+            }
+
+            commitMessage :: T.Text
+            commitMessage = T.pack "Dummy message"
+
+        mRef <- lookupReference (T.pack "HEAD")
+        let ref = fromMaybe (error "Invalid ref: HEAD") mRef
+
+        mCid <- referenceToOid ref
+        let head = fromMaybe (error "Somethign bad happened") mCid
+
+        createCommit [head] tree sig sig commitMessage Nothing
+    print "Finished"
