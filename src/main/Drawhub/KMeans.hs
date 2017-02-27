@@ -76,9 +76,6 @@ kmeans distance selection nbCentroids features = converge (==) $ iterate step in
         init = Cluster <$> chunksOf nbCentroids features
         step clusters = assignCentroid distance selection features <$> catMaybes $ clusterCentroid selection <$> clusters
 
-iterateM :: Monad m => (a -> m a) -> m a -> [m a]
-iterateM f u = u : iterateM f (u >>= f)
-
 converge :: (a -> a -> Bool) -> [a] -> Maybe a
 converge _ [] = Nothing
 converge p (x:ys@(y:_))

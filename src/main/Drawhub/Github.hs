@@ -2,7 +2,7 @@ module Drawhub.Github (
     GithubImage ( .. ),
 
     fitImage,
-    imageToCalendar
+    imageToNbActivities
 ) where
 
 import Codec.Picture
@@ -32,6 +32,13 @@ githubMaxWidth = 52
 
 githubMaxHeight :: Int
 githubMaxHeight = 7
+
+nbActivities :: Activity -> Int
+nbActivities A0 = 0
+nbActivities A1 = 1
+nbActivities A2 = 4
+nbActivities A3 = 7
+nbActivities A4 = 10
 
 activityRgb :: Activity -> PixelRGB8
 activityRgb A0 = PixelRGB8 238 238 238
@@ -85,8 +92,8 @@ githubShade img = pixelMap getShade quantizedImage where
 fitImage :: Image PixelRGB8 -> GithubImage
 fitImage img = GithubImage $ (githubShade . githubResize) img
 
-imageToCalendar :: GithubImage -> Calendar
-imageToCalendar img = Calendar $ fromJust . rgbToActivity <$> traversePixels (getRgbImage img)
+imageToNbActivities :: GithubImage -> [Int]
+imageToNbActivities img = nbActivities . fromJust . rgbToActivity <$> traversePixels (getRgbImage img)
 
 nubOrd :: Ord a => [a] -> [a]
 nubOrd = go Set.empty where
