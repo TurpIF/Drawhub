@@ -11,6 +11,7 @@ import Data.Time
 import qualified Drawhub.Github as G
 
 import Git
+import Git.Libgit2
 
 import System.Environment
 import System.Exit
@@ -27,13 +28,13 @@ handleMaybe :: Maybe a -> IO a
 handleMaybe (Just x) = return x
 handleMaybe Nothing = putStrLn "Error: Nothing" >> exitFailure
 
-openDummyRepo :: IO a
-openDummyRepo = let repoOpts = RepositoryOptions {
-    repoPath = "/d/tmp/tmp",
+openDummyRepo :: RepositoryFactory n m r -> m r
+openDummyRepo factory = let repoOpts = RepositoryOptions {
+    repoPath = "/tmp/tmp/",
     repoWorkingDir = Nothing,
-    repoIsBare = True,
+    repoIsBare = False,
     repoAutoCreate = False
-    } in openRepository repoOpts
+    } in openRepository factory repoOpts
 
 main :: IO ()
 main = do
@@ -46,17 +47,17 @@ main = do
     tz <- getCurrentTimeZone
     let now = utcToZonedTime tz utc
 
-    repo <- openDummyRepo
+    let repoFactory = lgFactory
+    repo <- openDummyRepo repoFactory
 
-    runRepository repo $ do
+    runRepository repoFactory repo $ do
         let buffer = BlobString . encodeUtf8 . T.pack $ "test"
 
         blobID <- createBlob buffer
-        putEntry (encodeUtf8 . T.pack $ "useless") BlobEntry {
+        tree <- createTree $ putEntry (encodeUtf8 . T.pack $ "useless") BlobEntry {
             blobEntryOid = blobID,
             blobEntryKind = PlainBlob
         }
-        tree <- currentTreeOid
 
         let sig = Signature {
                 signatureName = T.pack "Nobody",
@@ -71,7 +72,7 @@ main = do
         let ref = fromMaybe (error "Invalid ref: HEAD") mRef
 
         mCid <- referenceToOid ref
-        let head = fromMaybe (error "Somethign bad happened") mCid
+        -- cid <- lookupObject $ fromMaybe (error "Something bad happened") mCid
 
-        createCommit [head] tree sig sig commitMessage Nothing
+        createCommit [] tree sig sig commitMessage Nothing
     print "Finished"
