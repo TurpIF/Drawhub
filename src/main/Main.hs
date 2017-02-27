@@ -11,7 +11,7 @@ import Data.Time
 import qualified Drawhub.Github as G
 
 import Git
-import Git.Libgit2
+import Git.Libgit2 (lgFactory)
 
 import System.Environment
 import System.Exit
@@ -28,13 +28,13 @@ handleMaybe :: Maybe a -> IO a
 handleMaybe (Just x) = return x
 handleMaybe Nothing = putStrLn "Error: Nothing" >> exitFailure
 
-openDummyRepo :: RepositoryFactory n m r -> m r
-openDummyRepo factory = let repoOpts = RepositoryOptions {
-    repoPath = "/tmp/tmp/",
+repoOptions :: FilePath -> RepositoryOptions
+repoOptions path = RepositoryOptions {
+    repoPath = path,
     repoWorkingDir = Nothing,
     repoIsBare = False,
-    repoAutoCreate = False
-    } in openRepository factory repoOpts
+    repoAutoCreate = True
+}
 
 main :: IO ()
 main = do
@@ -47,10 +47,7 @@ main = do
     tz <- getCurrentTimeZone
     let now = utcToZonedTime tz utc
 
-    let repoFactory = lgFactory
-    repo <- openDummyRepo repoFactory
-
-    runRepository repoFactory repo $ do
+    withRepository' lgFactory (repoOptions "/tmp/tmp") $ do
         let buffer = BlobString . encodeUtf8 . T.pack $ "test"
 
         blobID <- createBlob buffer
@@ -71,8 +68,8 @@ main = do
         mRef <- lookupReference (T.pack "HEAD")
         let ref = fromMaybe (error "Invalid ref: HEAD") mRef
 
-        mCid <- referenceToOid ref
-        -- cid <- lookupObject $ fromMaybe (error "Something bad happened") mCid
+        --mCid <- referenceToOid ref
+        --let cid = Tagged $ fromMaybe (error "Something bad happened") mCid
 
-        createCommit [] tree sig sig commitMessage Nothing
+        createCommit [] tree sig sig commitMessage (Just $ T.pack "HEAD")
     print "Finished"
