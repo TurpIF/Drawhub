@@ -3,6 +3,7 @@ module Main where
 import Codec.Picture
 
 import Data.ByteString (ByteString)
+import Data.Foldable
 import Data.Maybe
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text as T
@@ -36,6 +37,26 @@ repoOptions path = RepositoryOptions {
     repoAutoCreate = True
 }
 
+mutate :: MonadGit r m => Maybe (Tree r) -> (TreeT r m a -> m (TreeOid r))
+mutate Nothing = createTree
+mutate (Just t) = mutateTree t
+
+createDummyChange :: (Show a, MonadGit r m) => Maybe (Tree r) -> a -> m (TreeOid r)
+createDummyChange tree n = do
+    let buffer = BlobString . encodeUtf8 . T.pack . show $ n
+    blobID <- createBlob buffer
+    mutate tree $ putEntry (encodeUtf8 . T.pack $ "dummy") BlobEntry {
+        blobEntryOid = blobID,
+        blobEntryKind = PlainBlob
+    }
+
+getSignature :: String -> ZonedTime -> Signature
+getSignature mail time = Signature {
+    signatureName = T.pack mail,
+    signatureEmail = T.pack mail,
+    signatureWhen = time
+}
+
 main :: IO ()
 main = do
     args <- getArgs
@@ -47,29 +68,16 @@ main = do
     tz <- getCurrentTimeZone
     let now = utcToZonedTime tz utc
 
+    let mail = "truc.machin@bidule.com"
+
     withRepository' lgFactory (repoOptions "/tmp/tmp") $ do
-        let buffer = BlobString . encodeUtf8 . T.pack $ "test"
+        let parent = Nothing
+        let n = 1
+        let date = now
+        tree <- createDummyChange Nothing n
 
-        blobID <- createBlob buffer
-        tree <- createTree $ putEntry (encodeUtf8 . T.pack $ "useless") BlobEntry {
-            blobEntryOid = blobID,
-            blobEntryKind = PlainBlob
-        }
+        let sig = getSignature mail date
+        let commitMessage = T.pack $ "commit " ++ show n
 
-        let sig = Signature {
-                signatureName = T.pack "Nobody",
-                signatureEmail = T.pack "nobody@example.com",
-                signatureWhen = now
-            }
-
-            commitMessage :: T.Text
-            commitMessage = T.pack "Dummy message"
-
-        mRef <- lookupReference (T.pack "HEAD")
-        let ref = fromMaybe (error "Invalid ref: HEAD") mRef
-
-        --mCid <- referenceToOid ref
-        --let cid = Tagged $ fromMaybe (error "Something bad happened") mCid
-
-        createCommit [] tree sig sig commitMessage (Just $ T.pack "HEAD")
+        createCommit (commitOid <$> toList parent) tree sig sig commitMessage Nothing
     print "Finished"
