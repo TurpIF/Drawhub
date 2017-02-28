@@ -98,7 +98,7 @@ quantization clustering img = generateImage generatePixel w h
         where cluster = fromMaybe [] $ findIn (Point x y) clusters
 
 traversePixels :: Image PixelRGB8 -> [PixelRGB8]
-traversePixels img = [pixelAt img x y | y <- [0..imageHeight img - 1], x <- [0..imageWidth img - 1]]
+traversePixels img = [pixelAt img x y | x <- [0..imageWidth img - 1], y <- [0..imageHeight img - 1]]
 
 traversePosPixels :: Image PixelRGB8 -> [(Int, Int, PixelRGB8)]
-traversePosPixels img = [(x, y, pixelAt img x y) | y <- [0..imageHeight img - 1], x <- [0..imageWidth img - 1]]
+traversePosPixels img = [(x, y, pixelAt img x y) | x <- [0..imageWidth img - 1], y <- [0..imageHeight img - 1]]
