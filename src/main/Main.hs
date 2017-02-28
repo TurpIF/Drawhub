@@ -20,8 +20,8 @@ import Git.Libgit2 (lgFactory)
 import System.Environment
 import System.Exit
 
-readArgs :: [String] -> Maybe (FilePath, FilePath)
-readArgs (x:y:_) = Just (x, y)
+readArgs :: [String] -> Maybe (FilePath, FilePath, String, FilePath)
+readArgs (a:b:c:d:_) = Just (a, b, c, d)
 readArgs _ = Nothing
 
 handleError :: Either String a -> IO a
@@ -90,13 +90,13 @@ commitNbActivities nb sig parent n = iterateN nb commit (return (parent, n)) whe
 main :: IO ()
 main = do
     args <- getArgs
-    (inputPath, outputPath) <- handleMaybe $ readArgs args
+    (inputPath, outputPath, mail, path) <- handleMaybe $ readArgs args
     image <- convertRGB8 <$> (readImage inputPath >>= handleError)
     savePngImage outputPath (ImageRGB8 . G.getRgbImage $ G.fitImage image)
 
-    let startDay = fromGregorian 2016 1 1
-    let sign = getSignature "truc.machin@bidule.com"
+    let startDay = fromGregorian 2016 9 18
+    let sign = getSignature mail
     let activities = G.imageToNbActivities . G.fitImage $ image
 
-    withRepository' lgFactory (repoOptions "/tmp/tmp") $ commitActivities activities sign startDay 
+    withRepository' lgFactory (repoOptions path) $ commitActivities activities sign startDay 
     print "Done"
