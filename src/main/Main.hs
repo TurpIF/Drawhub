@@ -2,35 +2,91 @@ module Main where
 
 import Codec.Picture
 
+import Control.Monad
+
 import Data.ByteString (ByteString)
 import Data.Foldable
 import Data.Maybe
+import Data.Monoid ((<>))
 import Data.Text.Encoding (encodeUtf8)
 import qualified Data.Text as T
 import Data.Time
 import Data.Time.Clock
 
-import Control.Monad
-
 import qualified Drawhub.Github as G
 
-import Git
+import Git hiding (Options)
 import Git.Libgit2 (lgFactory)
+
+import Options.Applicative
 
 import System.Environment
 import System.Exit
 
-readArgs :: [String] -> Maybe (FilePath, FilePath, String, FilePath)
-readArgs (a:b:c:d:_) = Just (a, b, c, d)
-readArgs _ = Nothing
+data Options = OptImage {
+        optInputImg :: FilePath,
+        optOutputImg :: FilePath
+    } | OptGit {
+        optInputImg :: FilePath,
+        optOutputGit :: FilePath,
+        optMail :: String,
+        optStartDay :: Day,
+        optBare :: Bool
+    }
+
+optionsImage :: Parser Options
+optionsImage = OptImage
+    <$> strOption ( long "input" <> short 'i' <> help "Input path of image to process" )
+    <*> strOption ( long "output" <> short 'o' <> help "Output path of generated image" )
+
+optionsGit :: Parser Options
+optionsGit = OptGit
+    <$> strOption ( long "input" <> short 'i' <> help "Input path of image to process" )
+    <*> strOption ( long "output" <> short 'o' <> help "Output path of git repository" )
+    <*> strOption ( long "mail" <> short 'm' <> help "Mail of the committer (should be same as the Github account's" )
+    <*> option dayReader ( long "start-day" <> short 'd' <> help "Start day of commits (should be a monday) (yyyy-mm-dd)" )
+    <*> switch ( long "bare" <> short 'b' <> help "Create a bare git repository" )
+
+options :: Parser Options
+options = hsubparser
+  $ command "image" (info optionsImage (progDesc "Transform an image to a preview"))
+  <> command "commit" (info optionsGit (progDesc "Create a new repository with commits representing the image"))
+
+dayReader :: ReadM Day
+dayReader = eitherReader $ \arg ->
+    case parseTimeM True defaultTimeLocale "%Y-%m-%d" arg of
+        Nothing -> Left ("Cannot parse date: " ++ arg)
+        Just day -> Right day
+
+main :: IO()
+main = doMain =<< execParser opts where
+    opts = info (options <**> helper)
+        (fullDesc <> progDesc desc <> header hdr)
+    hdr = "Drawhub - Draw on Github"
+    desc = "Draw an image on Github activities calendar"
+
+
+doMain :: Options -> IO ()
+doMain opts@(OptImage input output) = do
+    img <- fitImage input
+    savePngImage output (ImageRGB8 . G.getRgbImage $ img)
+
+doMain opts@(OptGit input output mail startDay bare) = do
+    img <- fitImage input
+
+    let repoOpt = repoOptions (optOutputGit opts)
+    let sign = getSignature mail
+    let activities = G.imageToNbActivities $ img
+
+    withRepository' lgFactory repoOpt $ commitActivities activities sign startDay 
+    return ()
+
+fitImage :: FilePath -> IO G.GithubImage
+fitImage path = G.fitImage . convertRGB8 <$> (handleError =<< readImage path)
 
 handleError :: Either String a -> IO a
 handleError (Left msg) = putStrLn ("Error: " ++ msg) >> exitFailure
 handleError (Right a) = return a
-
-handleMaybe :: Maybe a -> IO a
-handleMaybe (Just x) = return x
-handleMaybe Nothing = putStrLn "Error: Nothing" >> exitFailure
 
 repoOptions :: FilePath -> RepositoryOptions
 repoOptions path = RepositoryOptions {
@@ -87,16 +143,3 @@ commitNbActivities nb sig parent n = iterateN nb commit (return (parent, n)) whe
         newCommit <- createCommit (commitOid <$> toList curPar) tree sig sig message head
         return (return newCommit, curN + 1)
 
-main :: IO ()
-main = do
-    args <- getArgs
-    (inputPath, outputPath, mail, path) <- handleMaybe $ readArgs args
-    image <- convertRGB8 <$> (readImage inputPath >>= handleError)
-    savePngImage outputPath (ImageRGB8 . G.getRgbImage $ G.fitImage image)
-
-    let startDay = fromGregorian 2016 9 18
-    let sign = getSignature mail
-    let activities = G.imageToNbActivities . G.fitImage $ image
-
-    withRepository' lgFactory (repoOptions path) $ commitActivities activities sign startDay 
-    print "Done"
