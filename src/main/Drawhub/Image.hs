@@ -6,7 +6,8 @@ module Drawhub.Image (
     downscale,
     quantization,
     traversePixels,
-    traversePosPixels
+    traversePosPixels,
+    getAt
 ) where
 
 import Codec.Picture
@@ -87,15 +88,15 @@ findIn n (x:xs)
     | n `elem` x = Just x
     | otherwise = findIn n xs
 
+getAt :: Image PixelRGB8 -> Point Int -> PixelRGB8
+getAt img (Point x y) = pixelAt img x y
+
 quantization :: Clustering (Point Int) -> Image PixelRGB8 -> Image PixelRGB8
-quantization clustering img = generateImage generatePixel w h
-    where
-    w = imageWidth img
-    h = imageHeight img
-    positions = [Point i j | i <- [0..(w - 1)], j <- [0..(h - 1)]]
+quantization clustering img = pixelMapXY generatePixel img where
+    positions = [Point i j | i <- [0..(imageWidth img - 1)], j <- [0..(imageHeight img - 1)]]
     clusters = clustering positions
-    generatePixel x y = colorToRGB $ ceiling <$> (colorMean $ colorFromRGB . (\(Point x y) -> pixelAt img x y) <$> cluster)
-        where cluster = fromMaybe [] $ findIn (Point x y) clusters
+    generatePixel x y _ = colorToRGB $ ceiling <$> (colorMean $ colorFromRGB . (getAt img) <$> cluster) where
+      cluster = fromMaybe [] $ findIn (Point x y) clusters
 
 traversePixels :: Image PixelRGB8 -> [PixelRGB8]
 traversePixels img = [pixelAt img x y | x <- [0..imageWidth img - 1], y <- [0..imageHeight img - 1]]

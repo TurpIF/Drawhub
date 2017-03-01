@@ -1,7 +1,7 @@
 module Drawhub.KMeans (
     Distance,
     distL1,
-    distL2,
+    distL2sq,
     distLInf,
 
     FeatureSelection,
@@ -15,6 +15,7 @@ module Drawhub.KMeans (
 
 import Data.List
 import Data.Foldable
+import Data.Function (on)
 import Data.Maybe
 import Data.Ord
 import Data.Vector (Vector)
@@ -45,10 +46,8 @@ clusterElems (Cluster xs) = xs
 
 clusterCentroid :: Fractional b => FeatureSelection a b -> Cluster a -> Maybe (Centroid b)
 clusterCentroid _ (Cluster []) = Nothing
-clusterCentroid selection (Cluster xs) = Just $ V.map (/ fromIntegral (length features)) sum
-    where
-        sum = foldr1 (V.zipWith (+)) features
-        features = selection <$> xs
+clusterCentroid selection (Cluster xs) = Just $ V.map (/ fromIntegral (length xs)) sum where
+    sum = foldl1' (V.zipWith (+)) $ selection <$> xs
 
 nearest :: (Foldable f, Ord b) => (a -> a -> b) -> a -> f a -> Maybe a
 nearest distance from ts
@@ -57,24 +56,23 @@ nearest distance from ts
     where order = comparing (distance from)
 
 assignCentroid :: (Eq b, Real c) => Distance b c -> FeatureSelection a b -> [a] -> [Centroid b] -> [Cluster a]
-assignCentroid distance selection features centroids = Cluster . centroidNearests <$> centroids
-    where
-        centroidNearests centroid = filter (isNearest centroid) features
-        isNearest centroid feature = centroidNearest feature == Just centroid
-        centroidNearest feature = nearest distance (selection feature) centroids
+assignCentroid dist selection features cs = toList $ Cluster <$>
+  (V.unsafeAccum (flip (:)) (V.replicate n []) $ closest <$> features) where
+    closest a = (V.minIndexBy (compare `on` dist (selection a)) (V.fromList cs), a)
+    n = length cs
 
 chunksOf :: Int -> [a] -> [[a]]
 chunksOf n xs = chunksOf' size xs
     where
-        size = floor $ fromIntegral (length xs) / fromIntegral n
+        size = ceiling $ fromIntegral (length xs) / fromIntegral n
         chunksOf' _ [] = []
         chunksOf' n xs = take n xs : chunksOf' n (drop n xs)
 
 kmeans :: (Eq a, Eq b, Fractional b, Real c) => Distance b c -> FeatureSelection a b -> Int -> [a] -> Maybe [Cluster a]
-kmeans distance selection nbCentroids features = converge (==) $ iterate step init
-    where
-        init = Cluster <$> chunksOf nbCentroids features
-        step clusters = assignCentroid distance selection features <$> catMaybes $ clusterCentroid selection <$> clusters
+kmeans distance selection nbCentroids features = converge (==) $ iterate step init where
+    init = Cluster <$> chunksOf nbCentroids features
+    step clusters = assignCentroid distance selection features
+        <$> catMaybes $ clusterCentroid selection <$> clusters
 
 converge :: (a -> a -> Bool) -> [a] -> Maybe a
 converge _ [] = Nothing
@@ -88,8 +86,8 @@ distL1 a b = V.sum $ V.zipWith unit a b
     where unit x y = abs (x - y)
 
 -- L2 norm (euclidean)
-distL2 :: (Real a, Floating b) => Distance a b
-distL2 a b = sqrt . realToFrac . V.sum $ V.zipWith unit a b
+distL2sq :: Num a => Distance a a
+distL2sq a b = V.sum $ V.zipWith unit a b
     where unit x y = (x - y) ^ 2
 
 -- Linf norm (Chebyshev)

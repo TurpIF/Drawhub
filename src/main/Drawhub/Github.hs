@@ -66,7 +66,7 @@ rgbSaturation (PixelRGB8 r g b) = if max == 0 then 0 else min / max where
 
 clustering :: Int -> Image PixelRGB8 -> [Point Int] -> [[Point Int]]
 clustering nbClusters img points = clusterElems <$> fromMaybe [] (kmeans' points) where
-    kmeans' = kmeans distL2 (\(Point x y) -> vectorFromRGB $ pixelAt img x y) nbClusters
+    kmeans' = kmeans distL2sq (vectorFromRGB . (getAt img)) nbClusters
 
 -- TODO only one resize
 githubResize :: Image PixelRGB8 -> Image PixelRGB8
@@ -87,7 +87,7 @@ githubShade img = pixelMap getShade quantizedImage where
         activityOf 2 = A2
         activityOf 3 = A3
         activityOf 4 = A4
-        activityOf _ = error "no more activities"
+        activityOf _ = A0
 
 fitImage :: Image PixelRGB8 -> GithubImage
 fitImage img = GithubImage $ (githubShade . githubResize) img

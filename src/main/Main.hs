@@ -58,7 +58,7 @@ dayReader = eitherReader $ \arg ->
         Nothing -> Left ("Cannot parse date: " ++ arg)
         Just day -> Right day
 
-main :: IO()
+main :: IO ()
 main = doMain =<< execParser opts where
     opts = info (options <**> helper)
         (fullDesc <> progDesc desc <> header hdr)
@@ -71,10 +71,10 @@ doMain opts@(OptImage input output) = do
     img <- fitImage input
     savePngImage output (ImageRGB8 . G.getRgbImage $ img)
 
-doMain opts@(OptGit input output mail startDay bare) = do
+doMain opts@(OptGit input output mail startDay isBare) = do
     img <- fitImage input
 
-    let repoOpt = repoOptions (optOutputGit opts)
+    let repoOpt = repoOptions output isBare
     let sign = getSignature mail
     let activities = G.imageToNbActivities $ img
 
@@ -88,11 +88,11 @@ handleError :: Either String a -> IO a
 handleError (Left msg) = putStrLn ("Error: " ++ msg) >> exitFailure
 handleError (Right a) = return a
 
-repoOptions :: FilePath -> RepositoryOptions
-repoOptions path = RepositoryOptions {
+repoOptions :: FilePath -> Bool -> RepositoryOptions
+repoOptions path isBare = RepositoryOptions {
     repoPath = path,
     repoWorkingDir = Nothing,
-    repoIsBare = False,
+    repoIsBare = isBare,
     repoAutoCreate = True
 }
 
